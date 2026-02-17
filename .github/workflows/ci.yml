@@ -1,0 +1,45 @@
+name: Rust CI & Cross-Platform Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            binary: hello_world
+          - os: windows-latest
+            binary: hello_world.exe
+          - os: macos-latest
+            binary: hello_world
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - name: Build (Release)
+      run: cargo build --release --verbose
+    - name: Test
+      run: cargo test --verbose
+    - name: Upload Release Asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: target/release/${{ matrix.binary }}
+        asset_name: ${{ matrix.binary }}
+        asset_content_type: application/octet-stream
