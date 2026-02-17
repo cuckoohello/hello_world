@@ -1,71 +1,45 @@
-name: Rust Cross-Platform Release
-
+name: Cross-Platform Release
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [main]
   release:
-    types: [ published ]
-
+    types: [published]
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
-          # Native builds
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary: hello_world
+          - target: x86_64-unknown-linux-gnu
+            output: hello_world
             asset_name: hello_world-linux-x86_64
-            build_command: cargo build --release
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary: hello_world.exe
+          - target: x86_64-pc-windows-msvc
+            output: hello_world.exe
             asset_name: hello_world-windows-x86_64.exe
-            build_command: cargo build --release
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            binary: hello_world
+          - target: aarch64-apple-darwin
+            output: hello_world
             asset_name: hello_world-macos-aarch64
-            build_command: cargo build --release
-          # Cross-compiled builds
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            binary: hello_world
-            asset_name: hello_world-linux-aarch64
-            build_command: cross build --release --target ${{ matrix.target }}
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            binary: hello_world
+          - target: x86_64-apple-darwin
+            output: hello_world
             asset_name: hello_world-macos-x86_64
-            build_command: cross build --release --target ${{ matrix.target }}
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-        target: ${{ matrix.target }}
-        components: rustfmt, clippy
-
-    - name: Install Cross (for cross-compilation)
-      if: startsWith(matrix.build_command, 'cross')
-      run: cargo install cross --version 0.2.5
-
-    - name: Build Release Binary
-      run: ${{ matrix.build_command }}
-
-    - name: Upload Release Asset
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v2
-      with:
-        files: target/${{ matrix.target }}/release/${{ matrix.binary }}
-        asset_name: ${{ matrix.asset_name }}
-        tag_name: ${{ github.ref_name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+      - name: Install cross
+        run: cargo install cross
+      - name: Build
+        run: cross build --release --target ${{ matrix.target }}
+      - name: Upload to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/${{ matrix.target }}/release/${{ matrix.output }}
+          asset_name: ${{ matrix.asset_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
